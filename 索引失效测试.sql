@@ -118,32 +118,141 @@ select * from tb_station
 where createdate >= '2020-05-17 00:00:00'
 
 
--- # 索引失效的情况6，or的几个条件中，有1个没有用索引？？？？？？？？？？？？？？
-
-
--- =========================================================可能不走索引的情况
-
--- # 可能不走索引的情况1：非主键字段不等于。负向索引的话，这个看你的数据量，用不用，是优化器说了算
--- 不走索引
+-- # 索引失效的情况6，or的几个条件中，有1个没有用索引
+-- 不走索引。因为address这个字段没有加索引
 explain
 select * from tb_station
+where createdate < STR_TO_DATE('2016-10-18 10:24:15', '%Y-%m-%d %H:%i:%s')
+or address in('深圳市福田区福田街道', '地址aaa') 
+-- 走索引。createdate、code都走了索引，整条语句才走索引
+explain
+select * from tb_station
+where createdate < STR_TO_DATE('2016-10-18 10:24:15', '%Y-%m-%d %H:%i:%s')
+or code in('T0001', 'T10101') 
+
+-- # 索引失效的情况7。组合索引的表，查询不适用最左依赖原则
+-- 走索引。符合最左依赖原则
+
+explain
+
+select * from t_score
+
+where sid in(102, 103)
+
+
+
+explain
+
+select * from t_score
+
+where sid in(102, 103) and cid >= 90
+
+
+
+-- tip: 这里虽然顺序反了，但是仍然可以
+
+explain
+
+select * from t_score
+
+where cid >= 90 and sid in(102, 103)
+
+
+
+
+-- 不走索引。因为不符合最左依赖原则
+
+explain
+
+select * from t_score
+
+where cid >= 90
+
+
+
+-- =====================================================可能使你的索引失效的情况
+
+
+
+-- 情况1：负向索引，非主键的索引，使用 not、<> 和 !=，因为数据量的问题，可能会导致索引失效，也可能不失效
+
+
+
+-- 不走索引
+
+-- 非主键索引，使用 not in，失效的情况
+
+explain
+
+select * from tb_station
+
+where code not in('4')
+
+
+
+-- 非主键索引，使用 != ，失效的情况
+
+explain
+
+select * from tb_station
+
 where code != '4'
 
--- 走索引
-explain
+
+
+-- 非主键索引，使用 <>，失效的情况
+
+EXPLAIN 
+
 select * from tb_station
+
+where code <> 'G1120'
+
+
+
+
+
+-- 非主键索引，索引使用  or 加范围 （!=，失效时的替代方案），索引也无效
+
+explain
+
+select * from tb_station
+
+where code < 'G1120' or code > 'G1120'
+
+
+
+
+
+-- 走索引
+
+-- 主键索引，使用!=，有效的情况
+
+explain
+
+select * from tb_station
+
 where id != 1523
 
 
--- # 可能不走索引的情况2：非主键字段不包含
--- 不走索引
-explain
-select * from tb_station
-where code not in('4')
 
--- 走索引
+-- 主键索引，使用not in，有效的情况
+
 explain
+
 select * from tb_station
+
 where id not in(1523)
+
+
+-- 非主键索引，使用!=，索引有效的情况
+
+explain
+
+select * from t_score
+
+where score != 90
+
+
 
 
